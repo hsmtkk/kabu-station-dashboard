@@ -1,18 +1,19 @@
 package api
 
 import (
-	"fmt"
 	"log/slog"
 
 	"github.com/hsmtkk/kabu-station-dashboard/api/board_get"
+	"github.com/hsmtkk/kabu-station-dashboard/api/symbolname_future_get"
 	"github.com/hsmtkk/kabu-station-dashboard/api/symbolname_option_get"
 	"github.com/hsmtkk/kabu-station-dashboard/api/token"
 )
 
-const LIVE_PORT = 18080
+const BASE_URL = "http://localhost:18080/kabusapi"
 
 type Client interface {
 	BoardGet(req board_get.Request) (board_get.Response, error)
+	SymbolnameFutureGet(req symbolname_future_get.Request) (symbolname_future_get.Response, error)
 	SymbolnameOptionGet(req symbolname_option_get.Request) (symbolname_option_get.Response, error)
 }
 
@@ -29,14 +30,9 @@ func New(logger *slog.Logger, apiPassword string) (Client, error) {
 	return clt, nil
 }
 
-func (c *clientImpl) makeURL(path string) string {
-	return fmt.Sprintf("http://localhost:%d/kabusapi%s", LIVE_PORT, path)
-}
-
 func (c *clientImpl) setToken(req token.Request) error {
 	c.logger.Debug("setToken begin")
-	url := c.makeURL("/token")
-	resp, err := token.Handle(c.logger, url, req)
+	resp, err := token.Handle(c.logger, BASE_URL, req)
 	if err != nil {
 		return err
 	}
@@ -46,7 +42,23 @@ func (c *clientImpl) setToken(req token.Request) error {
 }
 
 func (c *clientImpl) BoardGet(req board_get.Request) (board_get.Response, error) {
-	return board_get.Response{}, nil
+	c.logger.Debug("BoardGet begin")
+	resp, err := board_get.Handle(c.logger, BASE_URL, c.token, req)
+	if err != nil {
+		return board_get.Response{}, err
+	}
+	c.logger.Debug("BoardGet end")
+	return resp, nil
+}
+
+func (c *clientImpl) SymbolnameFutureGet(req symbolname_future_get.Request) (symbolname_future_get.Response, error) {
+	c.logger.Debug("SymbolnameFutureGet begin")
+	resp, err := symbolname_future_get.Handle(c.logger, BASE_URL, c.token, req)
+	if err != nil {
+		return symbolname_future_get.Response{}, err
+	}
+	c.logger.Debug("SymbolnameFutureGet end")
+	return resp, nil
 }
 
 func (c *clientImpl) SymbolnameOptionGet(req symbolname_option_get.Request) (symbolname_option_get.Response, error) {
