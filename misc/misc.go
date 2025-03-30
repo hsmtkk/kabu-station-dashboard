@@ -21,7 +21,7 @@ func Interval() {
 	time.Sleep(INTERVAL_MILLI_SECONDS * time.Millisecond)
 }
 
-func CreateTodayDataDirectory() string {
+func MakeTodayDataDirectory() string {
 	name := time.Now().Format("2006-01-02")
 	dir := path.Join("./data", name)
 	if _, err := os.Stat(dir); err != nil {

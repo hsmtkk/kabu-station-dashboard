@@ -23,25 +23,35 @@ var SixMonthRegister = &cobra.Command{
 }
 
 func sixMonthRegister(cmd *cobra.Command, args []string) {
+	records, err := register()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := saveCSV(records); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func register() ([][]string, error) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 	}))
 	apiPassword := misc.RequiredEnvVar("KABU_STATION_API_PASSWORD")
 	apiClient, err := api.New(logger, apiPassword)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	if err := apiClient.UnregisterAllPut(); err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	utility := util.New(logger, apiClient)
 	atm, err := utility.AtTheMoney()
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	firstMonth, err := utility.FirstMonth()
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	records := [][]string{}
@@ -50,11 +60,11 @@ func sixMonthRegister(cmd *cobra.Command, args []string) {
 		misc.Interval()
 		putSymbol, err := apiClient.SymbolnameOptionGet(symbolname_option_get.Request{OptionCode: symbolname_option_get.NK225op, DerivMonth: &month, PutOrCall: symbolname_option_get.Put, StrikePrice: atm})
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 		callSymbol, err := apiClient.SymbolnameOptionGet(symbolname_option_get.Request{OptionCode: symbolname_option_get.NK225op, DerivMonth: &month, PutOrCall: symbolname_option_get.Call, StrikePrice: atm})
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 		req := register_put.Request{
 			Symbols: []register_put.SymbolExchange{
@@ -63,19 +73,16 @@ func sixMonthRegister(cmd *cobra.Command, args []string) {
 			},
 		}
 		if _, err := apiClient.RegisterPut(req); err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 		records = append(records, []string{month.Format("2006-01"), putSymbol.Symbol, callSymbol.Symbol})
 		month = month.AddDate(0, 1, 0)
 	}
-
-	if err := saveCSV(records); err != nil {
-		log.Fatal(err)
-	}
+	return records, nil
 }
 
 func saveCSV(records [][]string) error {
-	todayDir := misc.CreateTodayDataDirectory()
+	todayDir := misc.MakeTodayDataDirectory()
 	filePath := path.Join(todayDir, "six_month_symbol.csv")
 	file, err := os.Create(filePath)
 	if err != nil {
@@ -83,7 +90,7 @@ func saveCSV(records [][]string) error {
 	}
 	defer file.Close()
 	writer := csv.NewWriter(file)
-	csvHeader := []string{"year_month", "put_symbol", "call_symbol"}
+	csvHeader := []string{"#year_month", "put_symbol", "call_symbol"}
 	writer.Write(csvHeader)
 	if err := writer.WriteAll(records); err != nil {
 		return fmt.Errorf("csv.WriteAll failed: %w", err)
