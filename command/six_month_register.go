@@ -1,9 +1,12 @@
 package command
 
 import (
+	"encoding/csv"
+	"fmt"
 	"log"
 	"log/slog"
 	"os"
+	"path"
 
 	"github.com/hsmtkk/kabu-station-dashboard/api"
 	"github.com/hsmtkk/kabu-station-dashboard/api/board_get"
@@ -41,6 +44,7 @@ func sixMonthRegister(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
+	records := [][]string{}
 	month := firstMonth
 	for i := 0; i < 6; i++ {
 		misc.Interval()
@@ -61,6 +65,28 @@ func sixMonthRegister(cmd *cobra.Command, args []string) {
 		if _, err := apiClient.RegisterPut(req); err != nil {
 			log.Fatal(err)
 		}
+		records = append(records, []string{month.Format("2006-01"), putSymbol.Symbol, callSymbol.Symbol})
 		month = month.AddDate(0, 1, 0)
 	}
+
+	if err := saveCSV(records); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func saveCSV(records [][]string) error {
+	todayDir := misc.CreateTodayDataDirectory()
+	filePath := path.Join(todayDir, "six_month_symbol.csv")
+	file, err := os.Create(filePath)
+	if err != nil {
+		return fmt.Errorf("os.Create failed %s: %w", filePath, err)
+	}
+	defer file.Close()
+	writer := csv.NewWriter(file)
+	csvHeader := []string{"year_month", "put_symbol", "call_symbol"}
+	writer.Write(csvHeader)
+	if err := writer.WriteAll(records); err != nil {
+		return fmt.Errorf("csv.WriteAll failed: %w", err)
+	}
+	return nil
 }
